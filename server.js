@@ -1,3 +1,4 @@
+import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import mongoose from 'mongoose';
@@ -18,6 +19,7 @@ mongoose.connect(process.env.MY_DB_URL)
 
 
 app.use(express.json());
+app.use(cors());
 
 
 app.use('/api', userRoutes);
