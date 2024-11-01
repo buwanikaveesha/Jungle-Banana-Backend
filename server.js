@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import mongoose from 'mongoose';
+import questionRoutes from './routes/question.js';
 import userRoutes from './routes/user.js';
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use(cookieParser());
 
 
 app.use('/api', userRoutes);
+app.use('/api', questionRoutes);
 
 
 app.listen(PORT, ()=>{
