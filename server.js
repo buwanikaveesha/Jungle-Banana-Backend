@@ -5,6 +5,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import questionRoutes from './routes/question.js';
 import userRoutes from './routes/user.js';
+
 dotenv.config();
 
 const app = express();
@@ -30,6 +31,7 @@ app.use(cookieParser());
 
 app.use('/api', userRoutes);
 app.use('/api', questionRoutes);
+
 
 
 app.listen(PORT, ()=>{

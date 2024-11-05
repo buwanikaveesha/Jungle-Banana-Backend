@@ -13,7 +13,22 @@ const UserSchema = new mongoose.Schema({
     password: {
         type: String,
         required: true
+    },
+    score: {
+        easy: {
+            type: Number,
+            default: 0
+        },
+        medium: {
+            type: Number,
+            default: 0
+        },
+        hard: {
+            type: Number,
+            default: 0
+        }
     }
+
 })
 
 
