@@ -9,6 +9,7 @@ dotenv.config();
 
 const router = express.Router();
 
+// Signup Route
 router.post('/signup', async (req, res) => {
     const { username, email, password } = req.body;
 
@@ -24,7 +25,12 @@ router.post('/signup', async (req, res) => {
             username,
             email,
             password: hashpassword,
-           
+            score: {
+                easy: 0,
+                medium: 0,
+                hard: 0
+            },
+            rank: 'Beginner', // Default rank
         });
 
         await newUser.save();
@@ -34,6 +40,7 @@ router.post('/signup', async (req, res) => {
     }
 });
 
+// Login Route
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
@@ -49,7 +56,7 @@ router.post('/login', async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user._id, email: user.email }, 
+            { id: user._id, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
@@ -62,9 +69,9 @@ router.post('/login', async (req, res) => {
     }
 });
 
-
+// Update Score Route
 router.put('/score', requireAuth, async (req, res) => {
-    const userId = req.user.id; 
+    const userId = req.user.id;
     const { score, level } = req.body;
 
     try {
@@ -73,7 +80,13 @@ router.put('/score', requireAuth, async (req, res) => {
             return res.status(404).json({ error: "User not found!" });
         }
 
+        // Update the score for the respective level
         user.score[level] = (user.score[level] || 0) + score;
+
+        // Update the rank based on the total score
+        const totalScore = user.score.easy + user.score.medium + user.score.hard;
+        user.rank = totalScore >= 1000 ? 'Master' : totalScore >= 500 ? 'Intermediate' : 'Beginner';
+
         await user.save();
 
         res.status(200).json({ message: "Score updated", score: user.score });
@@ -82,9 +95,9 @@ router.put('/score', requireAuth, async (req, res) => {
     }
 });
 
+// Leaderboard Route
 router.get('/leaderboard', async (req, res) => {
     try {
-        
         const modes = ['easy', 'medium', 'hard'];
         const leaderboard = {};
 
@@ -103,5 +116,63 @@ router.get('/leaderboard', async (req, res) => {
         res.status(500).json({ message: 'Error fetching leaderboard', error });
     }
 });
+
+// Get User Profile Route
+router.get('/user/profile', requireAuth, async (req, res) => {
+    try {
+        // Fetch user profile by ID
+        const user = await User.findById(req.user.id); // Use req.user.id from the auth middleware
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Fetch all users to rank them based on score for each mode
+        const allUsers = await User.find();
+
+        // Rank users for each mode separately
+        const rank = {
+            easy: 1,
+            medium: 1,
+            hard: 1,
+        };
+
+        const sortedUsers = {
+            easy: allUsers.sort((a, b) => b.score.easy - a.score.easy),
+            medium: allUsers.sort((a, b) => b.score.medium - a.score.medium),
+            hard: allUsers.sort((a, b) => b.score.hard - a.score.hard),
+        };
+
+        // Assign rank to the user in each mode
+        sortedUsers.easy.forEach((userInMode, index) => {
+            if (userInMode._id.toString() === user._id.toString()) {
+                rank.easy = index + 1;
+            }
+        });
+
+        sortedUsers.medium.forEach((userInMode, index) => {
+            if (userInMode._id.toString() === user._id.toString()) {
+                rank.medium = index + 1;
+            }
+        });
+
+        sortedUsers.hard.forEach((userInMode, index) => {
+            if (userInMode._id.toString() === user._id.toString()) {
+                rank.hard = index + 1;
+            }
+        });
+
+        // Return profile data, including rank for each mode and score
+        res.json({
+            username: user.username,
+            email: user.email,
+            rank: rank, // Rank for each mode
+            score: user.score,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 
 export default router;
