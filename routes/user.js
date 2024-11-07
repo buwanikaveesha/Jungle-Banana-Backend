@@ -82,5 +82,26 @@ router.put('/score', requireAuth, async (req, res) => {
     }
 });
 
+router.get('/leaderboard', async (req, res) => {
+    try {
+        
+        const modes = ['easy', 'medium', 'hard'];
+        const leaderboard = {};
+
+        for (const level of modes) {
+            const users = await User.find().sort({ [`score.${level}`]: -1 });
+            leaderboard[level] = users.map((user, index) => ({
+                username: user.username,
+                email: user.email,
+                score: user.score[level],
+                rank: index + 1
+            }));
+        }
+
+        res.json(leaderboard);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching leaderboard', error });
+    }
+});
 
 export default router;
