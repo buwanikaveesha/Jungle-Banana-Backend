@@ -80,12 +80,9 @@ router.put('/score', requireAuth, async (req, res) => {
             return res.status(404).json({ error: "User not found!" });
         }
 
-        // Update the score for the respective level
+        
         user.score[level] = (user.score[level] || 0) + score;
 
-        // Update the rank based on the total score
-        const totalScore = user.score.easy + user.score.medium + user.score.hard;
-        user.rank = totalScore >= 1000 ? 'Master' : totalScore >= 500 ? 'Intermediate' : 'Beginner';
 
         await user.save();
 
@@ -120,26 +117,26 @@ router.get('/leaderboard', async (req, res) => {
 // Get User Profile Route
 router.get('/user/profile', requireAuth, async (req, res) => {
     try {
-        // Fetch user profile by ID
-        const user = await User.findById(req.user.id); // Use req.user.id from the auth middleware
+        const user = await User.findById(req.user.id); 
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Fetch all users to rank them based on score for each mode
+        // Fetch all users to calculate rankings
         const allUsers = await User.find();
 
-        // Rank users for each mode separately
+        // Initialize rank object for the current user
         const rank = {
             easy: 1,
             medium: 1,
             hard: 1,
         };
 
+        // Create separate sorted copies for each mode
         const sortedUsers = {
-            easy: allUsers.sort((a, b) => b.score.easy - a.score.easy),
-            medium: allUsers.sort((a, b) => b.score.medium - a.score.medium),
-            hard: allUsers.sort((a, b) => b.score.hard - a.score.hard),
+            easy: [...allUsers].sort((a, b) => b.score.easy - a.score.easy),
+            medium: [...allUsers].sort((a, b) => b.score.medium - a.score.medium),
+            hard: [...allUsers].sort((a, b) => b.score.hard - a.score.hard),
         };
 
         // Assign rank to the user in each mode
