@@ -30,7 +30,7 @@ router.post('/signup', async (req, res) => {
                 medium: 0,
                 hard: 0
             },
-            rank: 'Beginner', // Default rank
+            
         });
 
         await newUser.save();
