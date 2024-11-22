@@ -4,39 +4,45 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import requireAuth from '../middleware/requireAuth.js';
 import User from '../models/User.js';
+import sendEmail from '../utils/sendEmail.js';
 
 dotenv.config();
 
 const router = express.Router();
+const { JWT_SECRET } = process.env;
+
+// Utility function for error handling
+const handleError = (res, message, error, statusCode = 500) => {
+    console.error(message, error);
+    res.status(statusCode).json({ message, error: error?.message });
+};
 
 // Signup Route
 router.post('/signup', async (req, res) => {
     const { username, email, password } = req.body;
 
     try {
-        const user = await User.findOne({ email });
-        if (user) {
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        const hashpassword = await bcrypt.hash(password, 10);
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Create and save new user
         const newUser = new User({
             username,
             email,
-            password: hashpassword,
-            score: {
-                easy: 0,
-                medium: 0,
-                hard: 0
-            },
-            
+            password: hashedPassword,
+            score: { easy: 0, medium: 0, hard: 0 },
         });
 
         await newUser.save();
         return res.status(201).json({ status: true, message: "User registered successfully" });
     } catch (error) {
-        return res.status(500).json({ message: 'Error registering user', error });
+        handleError(res, 'Error registering user', error);
     }
 });
 
@@ -45,27 +51,27 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
+        // Find user by email
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(400).json({ message: 'User not found' });
         }
 
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
+        // Check if password is valid
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
             return res.status(400).json({ message: 'Invalid password' });
         }
 
-        const token = jwt.sign(
-            { id: user._id, email: user.email },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' }
-        );
+        // Generate token
+        const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
 
+        // Set token in cookie
         res.cookie('token', token, { httpOnly: true, maxAge: 3600000 });
 
         return res.status(200).json({ status: true, message: 'Login successful', token });
     } catch (error) {
-        return res.status(500).json({ message: 'Error logging in', error });
+        handleError(res, 'Error logging in', error);
     }
 });
 
@@ -75,99 +81,128 @@ router.put('/score', requireAuth, async (req, res) => {
     const { score, level } = req.body;
 
     try {
+
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ error: "User not found!" });
+            return res.status(404).json({ message: "User not found!" });
         }
 
-        
         user.score[level] = (user.score[level] || 0) + score;
 
-
         await user.save();
-
-        res.status(200).json({ message: "Score updated", score: user.score });
+        return res.status(200).json({ message: "Score updated", score: user.score });
     } catch (error) {
-        res.status(500).json({ error: "Failed to update score", details: error.message });
+        handleError(res, "Failed to update score", error);
     }
 });
 
 // Leaderboard Route
 router.get('/leaderboard', async (req, res) => {
     try {
-        const modes = ['easy', 'medium', 'hard'];
+        const levels = ['easy', 'medium', 'hard'];
         const leaderboard = {};
 
-        for (const level of modes) {
+        for (const level of levels) {
             const users = await User.find().sort({ [`score.${level}`]: -1 });
             leaderboard[level] = users.map((user, index) => ({
                 username: user.username,
                 email: user.email,
-                score: user.score[level],
-                rank: index + 1
+                score: user.score[level] || 0,
+                rank: index + 1,
             }));
         }
 
         res.json(leaderboard);
     } catch (error) {
-        res.status(500).json({ message: 'Error fetching leaderboard', error });
+        handleError(res, 'Error fetching leaderboard', error);
     }
 });
 
 // Get User Profile Route
 router.get('/user/profile', requireAuth, async (req, res) => {
     try {
-        const user = await User.findById(req.user.id); 
+
+        const user = await User.findById(req.user.id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Fetch all users to calculate rankings
         const allUsers = await User.find();
-
-        // Initialize rank object for the current user
-        const rank = {
-            easy: 1,
-            medium: 1,
-            hard: 1,
-        };
-
-        // Create separate sorted copies for each mode
+        const rank = { easy: 1, medium: 1, hard: 1 };
         const sortedUsers = {
-            easy: [...allUsers].sort((a, b) => b.score.easy - a.score.easy),
-            medium: [...allUsers].sort((a, b) => b.score.medium - a.score.medium),
-            hard: [...allUsers].sort((a, b) => b.score.hard - a.score.hard),
+            easy: allUsers.sort((a, b) => b.score.easy - a.score.easy),
+            medium: allUsers.sort((a, b) => b.score.medium - a.score.medium),
+            hard: allUsers.sort((a, b) => b.score.hard - a.score.hard),
         };
 
-        // Assign rank to the user in each mode
-        sortedUsers.easy.forEach((userInMode, index) => {
-            if (userInMode._id.toString() === user._id.toString()) {
-                rank.easy = index + 1;
-            }
+        ['easy', 'medium', 'hard'].forEach((level) => {
+            sortedUsers[level].forEach((u, idx) => {
+                if (u._id.toString() === user._id.toString()) {
+                    rank[level] = idx + 1;
+                }
+            });
         });
 
-        sortedUsers.medium.forEach((userInMode, index) => {
-            if (userInMode._id.toString() === user._id.toString()) {
-                rank.medium = index + 1;
-            }
-        });
-
-        sortedUsers.hard.forEach((userInMode, index) => {
-            if (userInMode._id.toString() === user._id.toString()) {
-                rank.hard = index + 1;
-            }
-        });
-
-        // Return profile data, including rank for each mode and score
         res.json({
             username: user.username,
             email: user.email,
-            rank: rank, // Rank for each mode
+            rank,
             score: user.score,
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        handleError(res, 'Error fetching user profile', error);
+    }
+});
+
+// Forgot Password Route
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "User not found!" });
+        }
+
+        const secret = JWT_SECRET + user.password;
+        const token = jwt.sign({ email: user.email, id: user._id }, secret, { expiresIn: '5m' });
+        const link = `http://localhost:3000/reset-password/${user._id}/${token}`;
+
+        await sendEmail(user.email, 'Password Reset Request', `Click this link to reset your password: ${link}`);
+
+        return res.status(200).json({ message: "Password reset link has been sent to your email." });
+    } catch (error) {
+        console.error("Error in forgot-password route:", error);
+        return res.status(500).json({ message: "Error generating reset password link", error: error.message });
+    }
+});
+
+
+// Reset Password Route
+router.post('/reset-password/:id/:token', async (req, res) => {
+    const { id, token } = req.params;
+    const { password } = req.body;
+
+    try {
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ message: "User does not exist!" });
+        }
+
+        const secret = JWT_SECRET + user.password;
+        jwt.verify(token, secret);
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user.password = hashedPassword;
+
+        await user.save();
+
+        return res.status(200).json({ message: "Password has been reset successfully." });
+
+    } catch (error) {
+        
+        return res.status(400).json({ message: "Invalid or expired token.", error: error.message });
     }
 });
 

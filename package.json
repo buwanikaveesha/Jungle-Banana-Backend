@@ -21,6 +21,7 @@
     "jsonwebtoken": "^9.0.2",
     "jungle-banana-backend": "file:",
     "mongoose": "^8.7.3",
+    "nodemailer": "^6.9.16",
     "nodemon": "^3.1.7"
   }
 }
