@@ -16,14 +16,14 @@ const __dirname = dirname(__filename);
 const app = express();
 let PORT = process.env.PORT || 3000;
 
+// Connect to MongoDB
 mongoose
-  .connect(process.env.MY_DB_URL, {
-    serverSelectionTimeoutMS: 10000,
+  .connect(process.env.MY_DB_URL)
+  .then(() => {
+    console.log('Connected to MongoDB');
   })
-  .then(() => console.log('Connected to MongoDB'))
   .catch((err) => {
-    console.error('Error connecting to MongoDB:', err.message);
-    console.error('Stack trace:', err.stack);
+    console.log('Error connecting to MongoDB:', err);
   });
 
 

@@ -158,35 +158,29 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
 
     try {
-        // Validate email format (optional but recommended)
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({ message: "Invalid email format." });
         }
 
-        // Find the user by email
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(404).json({ message: "User not found!" });
         }
 
-        // Generate the reset token using a static secret
-        const secret = JWT_SECRET; // Use the static secret for signing
+        const secret = JWT_SECRET;
         const token = jwt.sign({ email: user.email, id: user._id }, secret, { expiresIn: '5m' });
 
-        // Construct the reset link
         const link = `http://localhost:3000/reset-password/${user._id}/${token}`;
 
-        // Send the reset link via email
         await sendEmail(user.email, 'Password Reset Request', `Click this link to reset your password: ${link}`);
 
-        // Respond to the client
         return res.status(200).json({ message: "Password reset link has been sent to your email." });
     } catch (error) {
         console.error("Error in forgot-password route:", error.message);
         return res.status(500).json({
             message: "Error generating reset password link",
-            error: error.message,
+            error: error.message,  // Make sure to return the error message for easier debugging
         });
     }
 });
@@ -194,31 +188,44 @@ router.post('/forgot-password', async (req, res) => {
 
 
 
-// Reset Password Route
 router.post('/reset-password/:id/:token', async (req, res) => {
     const { id, token } = req.params;
     const { password } = req.body;
 
     try {
+        // Ensure password is provided
+        if (!password) {
+            return res.status(400).json({ message: "Password is required." });
+        }
 
+        // Find the user by ID
         const user = await User.findById(id);
         if (!user) {
             return res.status(404).json({ message: "User does not exist!" });
         }
 
-        const secret = JWT_SECRET + user.password;
-        jwt.verify(token, secret);
+        // Verify the JWT token
+        const secret = process.env.JWT_SECRET; // Use a static secret for validation
+        try {
+            const decoded = jwt.verify(token, secret);  // Decode the token
+            console.log(decoded); // Log the decoded token to check if it's valid
+        } catch (error) {
+            return res.status(400).json({ message: "Invalid or expired token.", error: error.message });
+        }
 
+        // Hash and update the user's password
         const hashedPassword = await bcrypt.hash(password, 10);
         user.password = hashedPassword;
 
+        // Save the updated user document
         await user.save();
 
         return res.status(200).json({ message: "Password has been reset successfully." });
 
     } catch (error) {
-        
-        return res.status(400).json({ message: "Invalid or expired token.", error: error.message });
+        // Log the error for debugging
+        console.error('Error in reset-password route:', error.message);
+        return res.status(500).json({ message: "An error occurred while resetting the password.", error: error.message });
     }
 });
 

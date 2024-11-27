@@ -1,30 +1,40 @@
+import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 
+dotenv.config();
+
 const sendEmail = async (to, subject, text) => {
+    // Ensure email credentials are available
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error("EMAIL_USER or EMAIL_PASS is not set in the environment variables.");
+    }
+
     try {
-        // Create a transport object using nodemailer
+        // Create a transporter using Gmail's SMTP settings
         const transporter = nodemailer.createTransport({
-            service: 'gmail', // You can replace this with other services like 'hotmail' or 'yahoo'
+            service: 'gmail',
             auth: {
-                user: process.env.EMAIL_USER, // Ensure EMAIL_USER is set in your environment variables
-                pass: process.env.EMAIL_PASS, // Ensure EMAIL_PASS is set in your environment variables
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
             },
             tls: {
-                rejectUnauthorized: false, // Disable certificate validation for self-signed certificates (not recommended for production)
+                rejectUnauthorized: false,  // Disable self-signed certificate rejection for Gmail
             },
         });
 
+        // Set the mail options
         const mailOptions = {
-            from: process.env.EMAIL_USER, // The 'from' email address (usually the same as EMAIL_USER)
+            from: process.env.EMAIL_USER,
             to,
             subject,
             text,
         };
 
-        // Send the email using nodemailer
+        // Send the email
         await transporter.sendMail(mailOptions);
         console.log('Email sent successfully!');
     } catch (error) {
+        // Log error if sending fails
         console.error('Error sending email:', error);
         throw new Error('Failed to send email: ' + error.message);
     }
