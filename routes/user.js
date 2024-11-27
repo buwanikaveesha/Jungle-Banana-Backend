@@ -154,28 +154,44 @@ router.get('/user/profile', requireAuth, async (req, res) => {
     }
 });
 
-// Forgot Password Route
 router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
 
     try {
+        // Validate email format (optional but recommended)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ message: "Invalid email format." });
+        }
+
+        // Find the user by email
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(404).json({ message: "User not found!" });
         }
 
-        const secret = JWT_SECRET + user.password;
+        // Generate the reset token using a static secret
+        const secret = JWT_SECRET; // Use the static secret for signing
         const token = jwt.sign({ email: user.email, id: user._id }, secret, { expiresIn: '5m' });
+
+        // Construct the reset link
         const link = `http://localhost:3000/reset-password/${user._id}/${token}`;
 
+        // Send the reset link via email
         await sendEmail(user.email, 'Password Reset Request', `Click this link to reset your password: ${link}`);
 
+        // Respond to the client
         return res.status(200).json({ message: "Password reset link has been sent to your email." });
     } catch (error) {
-        console.error("Error in forgot-password route:", error);
-        return res.status(500).json({ message: "Error generating reset password link", error: error.message });
+        console.error("Error in forgot-password route:", error.message);
+        return res.status(500).json({
+            message: "Error generating reset password link",
+            error: error.message,
+        });
     }
 });
+
+
 
 
 // Reset Password Route
