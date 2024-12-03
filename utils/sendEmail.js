@@ -10,7 +10,7 @@ const sendEmail = async (to, subject, text) => {
     }
 
     try {
-        // Create a transporter using Gmail's SMTP settings
+
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -18,11 +18,10 @@ const sendEmail = async (to, subject, text) => {
                 pass: process.env.EMAIL_PASS,
             },
             tls: {
-                rejectUnauthorized: false,  // Disable self-signed certificate rejection for Gmail
+                rejectUnauthorized: false,
             },
         });
 
-        // Set the mail options
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to,

@@ -57,7 +57,6 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'User not found' });
         }
 
-        // Check if password is valid
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(400).json({ message: 'Invalid password' });
@@ -118,10 +117,10 @@ router.get('/leaderboard', async (req, res) => {
     }
 });
 
-// Get User Profile Route
-router.get('/user/profile', requireAuth, async (req, res) => {
+// Profile Route
+router.get('/profile', requireAuth, async (req, res) => {
     try {
-
+        console.log('Profile route hit');
         const user = await User.findById(req.user.id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
@@ -150,10 +149,12 @@ router.get('/user/profile', requireAuth, async (req, res) => {
             score: user.score,
         });
     } catch (error) {
-        handleError(res, 'Error fetching user profile', error);
+        console.error('Error fetching user profile:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
+//Forgot Password Route
 router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
 
@@ -180,20 +181,17 @@ router.post('/forgot-password', async (req, res) => {
         console.error("Error in forgot-password route:", error.message);
         return res.status(500).json({
             message: "Error generating reset password link",
-            error: error.message,  // Make sure to return the error message for easier debugging
+            error: error.message,
         });
     }
 });
 
-
-
-
+//Reset Password Route
 router.post('/reset-password/:id/:token', async (req, res) => {
     const { id, token } = req.params;
     const { password } = req.body;
 
     try {
-        // Ensure password is provided
         if (!password) {
             return res.status(400).json({ message: "Password is required." });
         }
@@ -205,10 +203,10 @@ router.post('/reset-password/:id/:token', async (req, res) => {
         }
 
         // Verify the JWT token
-        const secret = process.env.JWT_SECRET; // Use a static secret for validation
+        const secret = process.env.JWT_SECRET;
         try {
-            const decoded = jwt.verify(token, secret);  // Decode the token
-            console.log(decoded); // Log the decoded token to check if it's valid
+            const decoded = jwt.verify(token, secret);
+            console.log(decoded);
         } catch (error) {
             return res.status(400).json({ message: "Invalid or expired token.", error: error.message });
         }
@@ -217,13 +215,11 @@ router.post('/reset-password/:id/:token', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         user.password = hashedPassword;
 
-        // Save the updated user document
         await user.save();
 
         return res.status(200).json({ message: "Password has been reset successfully." });
 
     } catch (error) {
-        // Log the error for debugging
         console.error('Error in reset-password route:', error.message);
         return res.status(500).json({ message: "An error occurred while resetting the password.", error: error.message });
     }
