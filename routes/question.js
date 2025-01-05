@@ -1,3 +1,4 @@
+//fetches a question from an external API, saves it to the MongoDB database, and returns the saved question to the user
 import axios from "axios";
 import express from "express";
 import Question from "../models/Question.js";

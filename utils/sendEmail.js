@@ -1,3 +1,4 @@
+//reusable utility to send emails programmatically using Nodemailer
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 

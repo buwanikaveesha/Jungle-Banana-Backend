@@ -1,3 +1,4 @@
+//managing user authentication, leaderboard functionality, and password recovery 
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import express from 'express';

@@ -1,3 +1,4 @@
+//handling requests, managing routes, connecting to the database, and serving the frontend files
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
